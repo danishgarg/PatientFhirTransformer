@@ -47,7 +47,7 @@ public class PatientCanonical {
             this.chartIds.add(chart.getAfter().getID());
         }
 	}
-	public List<PatientChartFhirWrapper> getFhirWrappers() {
+	public List<PatientChartFhirWrapper> createFhirWrappers() {
         ArrayList<PatientChartFhirWrapper> wrappers = new ArrayList<>();
         if (this.chartIds == null || this.chartIds.size() == 0) {
             return wrappers;

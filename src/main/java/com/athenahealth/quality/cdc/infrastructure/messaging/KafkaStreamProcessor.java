@@ -46,25 +46,29 @@ public class KafkaStreamProcessor {
     }
 
     @StreamListener
-    @SendTo(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_OUT)
+    @SendTo(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_OUT_CLIENT_JOIN)
     public KStream<String, PatientCanonical> applyClientUpdates(
         @Input(KafkaChannels.CLIENT_CDC_SNAPSHOT_IN) KStream<String, ClientCDCMessage> clients,
-        @Input(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_IN) KTable<String, PatientCanonical> patientsTable) {
+        @Input(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_IN_TABLE_CLIENT_JOIN) KTable<String, PatientCanonical> patientsTable) {
             return clients
+            .peek((key, value) -> System.out.println("Received patient cdc snapshot with key" + key + " value: " + value))
             .filter((key, value) -> value != null && value.getAfter() != null && value.getAfter().getENTERPRISEID() != null)
             .selectKey((key, value) -> value.getAfter().getENTERPRISEID())
-            .leftJoin(patientsTable, (client, patient) -> this.UpdatePatientCanonicalForClient(client,patient));
+            .leftJoin(patientsTable, (client, patient) -> this.UpdatePatientCanonicalForClient(client,patient))
+            .peek((key, value) -> System.out.println("publishing patient canonical with key" + key + " value: " + value));
     }
 
     @StreamListener
-    @SendTo(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_OUT)
+    @SendTo(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_OUT_CHART_JOIN)
     public KStream<String, PatientCanonical> applyChartUpdates(
         @Input(KafkaChannels.CHART_CDC_SNAPSHOT_IN) KStream<String, ChartCDCMessage> charts,
-        @Input(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_IN) KTable<String, PatientCanonical> patientsTable) {
+        @Input(KafkaChannels.PATIENT_CANONICAL_SNAPSHOT_IN_TABLE_CHART_JOIN) KTable<String, PatientCanonical> patientsTable) {
             return charts
+            .peek((key, value) -> System.out.println("Received chart cdc snapshot with key" + key + " value: " + value))
             .filter((key, value) -> value != null && value.getAfter() != null && value.getAfter().getENTERPRISEID() != null)
             .selectKey((key, value) -> value.getAfter().getENTERPRISEID())
-            .leftJoin(patientsTable, (chart, patient) -> this.UpdatePatientCanonicalForChart(chart,patient));
+            .leftJoin(patientsTable, (chart, patient) -> this.UpdatePatientCanonicalForChart(chart,patient))
+            .peek((key, value) -> System.out.println("publishing patient canonical with key" + key + " value: " + value));
     }
 
     @StreamListener
@@ -77,7 +81,7 @@ public class KafkaStreamProcessor {
     }
 
     private List<PatientChartFhirWrapper> getPatientFhirRecords(PatientCanonical patientCanonical) {
-        return patientCanonical.getFhirWrappers();
+        return patientCanonical.createFhirWrappers();
     }
 
     private PatientCanonical UpdatePatientCanonicalForChart(ChartCDCMessage chart, PatientCanonical patient) {
